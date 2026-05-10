@@ -6,6 +6,7 @@ from datetime import datetime
 
 from stock_data import get_stock_kline
 from indicators import calc_macd, calc_kdj, calc_rsi, calc_ma_cross, calc_boll
+from chart_generator import generate_chart
 from email_sender import send_email
 
 
@@ -102,6 +103,9 @@ def check_signals(stock_code, market, stock_name):
         latest_close = closes[-1]
         latest_change = ((closes[-1] - closes[-2]) / closes[-2] * 100) if len(closes) >= 2 else 0
 
+        # 生成K线图
+        chart_b64 = generate_chart(kline, stock_name, stock_code)
+
         return True, {
             "code": stock_code,
             "market": market,
@@ -110,6 +114,7 @@ def check_signals(stock_code, market, stock_name):
             "close": latest_close,
             "change": latest_change,
             "signals": signals,
+            "chart_b64": chart_b64,
             "indicators": {
                 "MACD": f"{'金叉' if macd_golden else '死叉' if macd_death else '-'} (DIF:{dif:.3f})" if dif is not None else "-",
                 "KDJ": f"{'金叉' if kdj_golden else '死叉' if kdj_death else '-'} (K:{k:.2f} D:{d:.2f})" if k is not None else "-",
@@ -164,6 +169,9 @@ def build_email_body(signals_list):
                 <span style="color:#9A8B7A;font-size:12px;margin-left:6px;">{item['date']}</span>
             </div>
             <div style="margin-bottom:6px;">{badges}</div>
+            <div style="margin-bottom:8px;">
+                <img src="data:image/png;base64,{item['chart_b64']}" style="width:100%;max-width:560px;border-radius:6px;display:block;" alt="K-line">
+            </div>
             <div style="font-size:11px;color:#9A8B7A;border-top:1px solid #E5DDD4;padding-top:7px;">
                 MACD: {item['indicators']['MACD']} &nbsp;|&nbsp; KDJ: {item['indicators']['KDJ']} &nbsp;|&nbsp; RSI: {item['indicators']['RSI']}<br>
                 MA10: {item['indicators']['MA10']} &nbsp;|&nbsp; BOLL: {item['indicators']['BOLL']}

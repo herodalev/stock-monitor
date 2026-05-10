@@ -17,7 +17,9 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install requests numpy
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk 2>/dev/null
+          pip install requests numpy matplotlib
 
       - name: Decode config
         run: echo "$CONFIG" | base64 -d > config.json
