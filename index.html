@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>股票技术指标监控</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    background:#F2EDE7; font-family:'Microsoft YaHei','PingFang SC',Arial,sans-serif;
+    padding:20px; color:#5A4B3C;
+}
+.container { max-width:1100px; margin:0 auto; }
+
+/* 头部 */
+.header {
+    background:#FCFAF7; border-radius:12px; padding:24px 28px;
+    margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.06);
+}
+.header .sub { color:#8B7E6F; font-size:11px; letter-spacing:2px; margin-bottom:4px; }
+.header h1 { font-size:22px; font-weight:normal; margin:0 0 6px 0; color:#5A4B3C; }
+.header .meta { color:#9A8B7A; font-size:13px; }
+.header .params { color:#B5A898; font-size:11px; margin-top:4px; }
+
+/* 统计条 */
+.stats-bar {
+    display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-top:12px;
+    border-top:1px solid #E5DDD4;
+}
+.stat-badge {
+    font-size:12px; color:#8B7E6F; background:#F0EBE4;
+    padding:3px 10px; border-radius:12px;
+}
+.stat-badge em { font-style:normal; font-weight:bold; color:#5A4B3C; margin-left:3px; }
+
+/* 表格 */
+.table-wrap {
+    background:#FCFAF7; border-radius:12px; overflow:hidden;
+    box-shadow:0 2px 8px rgba(0,0,0,0.06);
+}
+table { width:100%; border-collapse:collapse; font-size:13px; }
+thead th {
+    background:#F5F0E8; color:#8B7E6F; font-weight:normal; font-size:11px;
+    letter-spacing:1px; padding:10px 12px; text-align:left; border-bottom:1px solid #E5DDD4;
+}
+tbody td { padding:10px 12px; border-bottom:1px solid #F0EBE4; }
+.stock-row { cursor:pointer; transition:background 0.15s; }
+.stock-row:hover { background:#FAF6F0; }
+.stock-row.active { background:#F5EFE8; }
+.num { font-family:'SF Mono','Consolas',monospace; text-align:right; }
+.code { font-size:11px; color:#A89888; margin-left:5px; }
+.market-tag { font-size:10px; color:#B5A898; background:#F0EBE4; padding:1px 5px; border-radius:3px; }
+
+/* 信号标签 */
+.badge {
+    display:inline-block; font-size:10px; font-weight:bold; padding:1px 7px;
+    border-radius:4px; margin:1px 2px;
+}
+.badge.golden { background:#A1B5A0; color:#fff; }
+.badge.death { background:#C4A4A4; color:#fff; }
+
+/* 展开详情 */
+.detail-card {
+    padding:12px 12px 12px 32px; background:#FAF7F3; border-radius:8px; margin:4px 0;
+}
+.chart-wrap { margin-bottom:8px; }
+.indicator-text { font-size:11px; color:#9A8B7A; line-height:1.6; }
+.signal-desc { font-size:11px; color:#8B7E6F; margin-top:4px; }
+
+/* 底部 */
+.footer { text-align:center; color:#B5A898; font-size:11px; padding:16px 0; }
+
+/* 响应式 */
+@media(max-width:700px) {
+    table { font-size:12px; }
+    thead th, tbody td { padding:8px 6px; }
+    .code { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="sub">STOCK MONITOR DASHBOARD</div>
+        <h1>股票技术指标监控仪表盘</h1>
+        <div class="meta">
+            更新时间: 2026-05-10 22:08:03 &nbsp;|&nbsp;
+            监控 90 只股票 &nbsp;|&nbsp;
+            <strong style="color:#5A4B3C;">28</strong> 只出现信号
+        </div>
+        <div class="params">MACD(19,39,9) · KDJ(18,3,3) · RSI(21,7) · MA10 · BOLL(20,2)</div>
+        <div class="stats-bar"><span class="stat-badge">BOLL死叉 <em>2</em></span><span class="stat-badge">KDJ死叉 <em>13</em></span><span class="stat-badge">KDJ金叉 <em>8</em></span><span class="stat-badge">MACD死叉 <em>1</em></span><span class="stat-badge">MACD金叉 <em>3</em></span><span class="stat-badge">RSI死叉 <em>3</em></span><span class="stat-badge">RSI金叉 <em>2</em></span></div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:32px;">#</th>
+                    <th>名称</th>
+                    <th style="width:36px;">市场</th>
+                    <th style="width:80px;" class="num">收盘</th>
+                    <th style="width:80px;" class="num">涨跌幅</th>
+                    <th>信号</th>
+                    <th style="width:140px;">详情</th>
+                </tr>
+            </thead>
+            <tbody>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">1</td>
+            <td><strong>闪迪</strong><span class="code">SNDK</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">1562.3399658203125</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+16.60%</td>
+            <td>KDJ↑</td>
+            <td><span class="badge golden">KDJ 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/SNDK.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:171.878) | KDJ:金叉 (K:94.08 D:93.81) | RSI:慢77.33 快83.52 | MA10:- (1239.473) | BOLL:-</div>
+                    <div class="signal-desc">K(94.08) 上穿 D(93.81)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">2</td>
+            <td><strong>美光科技</strong><span class="code">MU</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">746.8099975585938</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+15.49%</td>
+            <td>KDJ↑</td>
+            <td><span class="badge golden">KDJ 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/MU.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:59.324) | KDJ:金叉 (K:94.82 D:93.65) | RSI:慢79.36 快88.68 | MA10:- (588.336) | BOLL:-</div>
+                    <div class="signal-desc">K(94.82) 上穿 D(93.65)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">3</td>
+            <td><strong>英特尔</strong><span class="code">INTC</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">124.91999816894531</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+13.96%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:14.971) | KDJ:- (K:93.34 D:94.19) | RSI:慢82.98 快86.60 | MA10:- (100.984) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">4</td>
+            <td><strong>美国超微公司</strong><span class="code">AMD</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">455.19000244140625</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+11.44%</td>
+            <td>KDJ↑</td>
+            <td><span class="badge golden">KDJ 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/AMD.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:44.796) | KDJ:金叉 (K:94.04 D:92.70) | RSI:慢78.78 快82.61 | MA10:- (369.182) | BOLL:-</div>
+                    <div class="signal-desc">K(94.04) 上穿 D(92.70)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">5</td>
+            <td><strong>兆新股份</strong><span class="code">002256</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">5.28</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+10.00%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.204) | KDJ:- (K:94.98 D:89.10) | RSI:慢70.58 快89.16 | MA10:- (4.636) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">6</td>
+            <td><strong>大唐发电</strong><span class="code">601991</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">5.54</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+9.92%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.162) | KDJ:- (K:90.78 D:79.57) | RSI:慢74.60 快89.22 | MA10:- (4.413) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">7</td>
+            <td><strong>大族激光</strong><span class="code">002008</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">122.06</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+8.58%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:11.948) | KDJ:- (K:92.41 D:89.79) | RSI:慢79.45 快87.77 | MA10:- (105.085) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">8</td>
+            <td><strong>沃格光电</strong><span class="code">603773</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">72.75</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+6.05%</td>
+            <td>KDJ↑</td>
+            <td><span class="badge golden">KDJ 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/603773.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:7.763) | KDJ:金叉 (K:91.77 D:90.66) | RSI:慢72.37 快77.23 | MA10:- (65.793) | BOLL:-</div>
+                    <div class="signal-desc">K(91.77) 上穿 D(90.66)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">9</td>
+            <td><strong>甘肃能源</strong><span class="code">000791</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">9.2</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+5.75%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.231) | KDJ:- (K:79.13 D:72.96) | RSI:慢62.72 快75.74 | MA10:- (8.430) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">10</td>
+            <td><strong>半导体ETF</strong><span class="code">SOXX</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">520.2999877929688</td>
+            <td class="num" style="color:#6B8F6B;font-weight:bold;">+5.67%</td>
+            <td>KDJ↑,RSI↑</td>
+            <td><span class="badge golden">KDJ 金叉</span><span class="badge golden">RSI 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/SOXX.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:35.908) | KDJ:金叉 (K:95.64 D:94.97) | RSI:慢75.74 快79.35 | MA10:- (473.562) | BOLL:-</div>
+                    <div class="signal-desc">K(95.64) 上穿 D(94.97); 快线RSI(79.35) 上穿慢线RSI(75.74)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">11</td>
+            <td><strong>长电科技</strong><span class="code">600584</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">50.75</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+4.08%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.995) | KDJ:- (K:87.93 D:85.55) | RSI:慢64.82 快80.64 | MA10:- (46.386) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">12</td>
+            <td><strong>卫星ETF广发</strong><span class="code">512630</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.649</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+3.58%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.021) | KDJ:- (K:85.58 D:77.72) | RSI:慢62.30 快77.46 | MA10:- (1.542) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">13</td>
+            <td><strong>航空航天ETF华夏</strong><span class="code">159227</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.38</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+3.45%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:-0.011) | KDJ:- (K:70.76 D:61.22) | RSI:慢55.46 快71.72 | MA10:- (1.314) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">14</td>
+            <td><strong>中国能建</strong><span class="code">601868</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">3.22</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+3.21%</td>
+            <td>MACD↑</td>
+            <td><span class="badge golden">MACD 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/601868.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:金叉 (DIF:0.028) | KDJ:- (K:61.18 D:42.32) | RSI:慢61.09 快77.47 | MA10:- (2.935) | BOLL:-</div>
+                    <div class="signal-desc">DIF(0.028) 上穿 DEA(0.021)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">15</td>
+            <td><strong>卫星ETF永赢</strong><span class="code">159206</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.979</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+2.54%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.043) | KDJ:- (K:89.54 D:83.73) | RSI:慢64.60 快79.46 | MA10:- (1.861) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">16</td>
+            <td><strong>纳指100ETF</strong><span class="code">QQQ</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">711.22998046875</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+2.34%</td>
+            <td>KDJ↑</td>
+            <td><span class="badge golden">KDJ 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/QQQ.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:21.967) | KDJ:金叉 (K:97.39 D:97.02) | RSI:慢76.92 快90.33 | MA10:- (678.167) | BOLL:-</div>
+                    <div class="signal-desc">K(97.39) 上穿 D(97.02)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">17</td>
+            <td><strong>机器人ETF华夏</strong><span class="code">562500</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.122</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+2.28%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.016) | KDJ:- (K:95.97 D:93.57) | RSI:慢67.66 快85.14 | MA10:- (1.041) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">18</td>
+            <td><strong>工业母机ETF国泰</strong><span class="code">159667</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">2.226</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+2.20%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.075) | KDJ:- (K:97.47 D:95.26) | RSI:慢70.51 快85.78 | MA10:- (2.050) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">19</td>
+            <td><strong>军工ETF国泰</strong><span class="code">512660</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.474</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.94%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.007) | KDJ:- (K:88.70 D:82.07) | RSI:慢60.07 快78.48 | MA10:- (1.413) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">20</td>
+            <td><strong>小米集团-W</strong><span class="code">01810</span></td>
+            <td><span class="market-tag">HK</span></td>
+            <td class="num">31.68</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.80%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:-0.864) | KDJ:- (K:52.33 D:40.88) | RSI:慢48.17 快59.29 | MA10:- (30.644) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">21</td>
+            <td><strong>英伟达</strong><span class="code">NVDA</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">215.1999969482422</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.75%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:6.360) | KDJ:- (K:73.97 D:68.80) | RSI:慢63.35 快70.20 | MA10:- (206.656) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">22</td>
+            <td><strong>亨通光电</strong><span class="code">600487</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">77.27</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.72%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:7.013) | KDJ:- (K:87.39 D:83.46) | RSI:慢71.68 快78.78 | MA10:- (70.262) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">23</td>
+            <td><strong>汽车零部件ETF</strong><span class="code">159565</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.638</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.61%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.004) | KDJ:- (K:89.95 D:83.68) | RSI:慢62.20 快79.18 | MA10:- (1.548) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">24</td>
+            <td><strong>中韩半导体ETF</strong><span class="code">513310</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">5.122</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.29%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.233) | KDJ:- (K:91.80 D:87.35) | RSI:慢74.85 快93.76 | MA10:- (4.359) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">25</td>
+            <td><strong>港美互联网LOF</strong><span class="code">160644</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.974</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.28%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.067) | KDJ:- (K:83.77 D:88.83) | RSI:慢75.51 快93.39 | MA10:- (1.807) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">26</td>
+            <td><strong>Lumentum</strong><span class="code">LITE</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">903.7999877929688</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.26%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:63.051) | KDJ:- (K:60.85 D:66.86) | RSI:慢55.81 快49.94 | MA10:- (907.302) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">27</td>
+            <td><strong>通信ETF国泰</strong><span class="code">515880</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.43</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+1.13%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.076) | KDJ:- (K:85.80 D:80.73) | RSI:慢68.92 快75.67 | MA10:- (1.367) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">28</td>
+            <td><strong>中际旭创</strong><span class="code">300308</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">886.0</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.97%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:72.154) | KDJ:- (K:82.43 D:82.52) | RSI:慢69.47 快71.24 | MA10:- (866.961) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">29</td>
+            <td><strong>Bloom Energy</strong><span class="code">BE</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">261.0299987792969</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.92%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:31.496) | KDJ:- (K:73.25 D:83.32) | RSI:慢62.14 快51.63 | MA10:- (271.193) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">30</td>
+            <td><strong>中国广核</strong><span class="code">003816</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">4.68</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.86%</td>
+            <td>RSI↑</td>
+            <td><span class="badge golden">RSI 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/003816.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.110) | KDJ:- (K:75.67 D:72.42) | RSI:慢62.00 快63.72 | MA10:- (4.628) | BOLL:-</div>
+                    <div class="signal-desc">快线RSI(63.72) 上穿慢线RSI(62.00)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">31</td>
+            <td><strong>标普500ETF</strong><span class="code">VOO</span></td>
+            <td><span class="market-tag">US</span></td>
+            <td class="num">678.0399780273438</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.82%</td>
+            <td>KDJ↑</td>
+            <td><span class="badge golden">KDJ 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/VOO.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:13.051) | KDJ:金叉 (K:95.48 D:94.78) | RSI:慢70.46 快81.30 | MA10:- (663.976) | BOLL:-</div>
+                    <div class="signal-desc">K(95.48) 上穿 D(94.78)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">32</td>
+            <td><strong>纳指ETF国泰</strong><span class="code">513100</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">2.065</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.54%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.052) | KDJ:- (K:97.05 D:95.80) | RSI:慢73.05 快92.32 | MA10:- (1.967) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">33</td>
+            <td><strong>云计算ETF易方达</strong><span class="code">516510</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.929</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.47%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.027) | KDJ:- (K:86.28 D:82.10) | RSI:慢60.67 快73.83 | MA10:- (1.849) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">34</td>
+            <td><strong>上汽集团</strong><span class="code">600104</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">13.64</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.37%</td>
+            <td>KDJ↑</td>
+            <td><span class="badge golden">KDJ 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/600104.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:-0.197) | KDJ:金叉 (K:15.48 D:14.82) | RSI:慢40.93 快37.65 | MA10:- (13.710) | BOLL:-</div>
+                    <div class="signal-desc">K(15.48) 上穿 D(14.82)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">35</td>
+            <td><strong>云计算ETF华夏</strong><span class="code">516630</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.882</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.32%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.028) | KDJ:- (K:87.73 D:83.18) | RSI:慢61.09 快74.39 | MA10:- (1.803) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">36</td>
+            <td><strong>通信ETF华夏</strong><span class="code">515050</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">3.174</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.32%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.175) | KDJ:- (K:87.99 D:83.57) | RSI:慢70.25 快78.04 | MA10:- (3.042) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">37</td>
+            <td><strong>纳指ETF广发</strong><span class="code">159941</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.54</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.20%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.039) | KDJ:- (K:96.88 D:96.14) | RSI:慢73.88 快92.33 | MA10:- (1.463) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">38</td>
+            <td><strong>东山精密</strong><span class="code">002384</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">211.39</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.15%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:24.877) | KDJ:- (K:94.58 D:92.30) | RSI:慢82.95 快91.45 | MA10:- (191.682) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">39</td>
+            <td><strong>银行ETF华宝</strong><span class="code">512800</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">0.785</td>
+            <td class="num" style="color:#8FA88A;font-weight:bold;">+0.13%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.000) | KDJ:- (K:23.58 D:39.45) | RSI:慢44.70 快29.64 | MA10:- (0.796) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">40</td>
+            <td><strong>信息安全ETF易方达</strong><span class="code">562920</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.098</td>
+            <td class="num" style="color:#9A8B7A;font-weight:bold;">+0.00%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.004) | KDJ:- (K:85.88 D:82.09) | RSI:慢57.18 快71.46 | MA10:- (1.065) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">41</td>
+            <td><strong>有色金属ETF南方</strong><span class="code">512400</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">2.206</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.05%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.012) | KDJ:- (K:81.62 D:76.29) | RSI:慢55.37 快64.66 | MA10:- (2.140) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">42</td>
+            <td><strong>绿色电力ETF嘉实</strong><span class="code">159625</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.343</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.07%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.010) | KDJ:- (K:78.70 D:71.93) | RSI:慢57.16 快66.14 | MA10:- (1.323) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">43</td>
+            <td><strong>红利低波ETF华泰柏瑞</strong><span class="code">512890</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.177</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.08%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.001) | KDJ:- (K:33.20 D:47.01) | RSI:慢45.78 快32.38 | MA10:- (1.189) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">44</td>
+            <td><strong>美国50ETF易方达</strong><span class="code">513850</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.7</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.12%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.027) | KDJ:- (K:93.58 D:94.25) | RSI:慢65.99 快85.94 | MA10:- (1.661) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">45</td>
+            <td><strong>红利低波50ETF</strong><span class="code">515450</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.429</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.14%</td>
+            <td>BOLL↓</td>
+            <td><span class="badge death">BOLL 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/515450.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.002) | KDJ:- (K:68.00 D:72.87) | RSI:慢49.39 快42.58 | MA10:- (1.436) | BOLL:下穿中轨</div>
+                    <div class="signal-desc">收盘价(1.429) 下穿中轨(1.429)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">46</td>
+            <td><strong>自由现金流ETF</strong><span class="code">159232</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.318</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.15%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:-0.004) | KDJ:- (K:44.54 D:51.65) | RSI:慢45.98 快40.23 | MA10:- (1.325) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">47</td>
+            <td><strong>恒生科技ETF华夏</strong><span class="code">513180</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">0.653</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.15%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:-0.006) | KDJ:- (K:77.07 D:65.54) | RSI:慢53.04 快67.94 | MA10:- (0.634) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">48</td>
+            <td><strong>电力ETF广发</strong><span class="code">159611</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.147</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.17%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.008) | KDJ:- (K:79.37 D:73.03) | RSI:慢57.08 快65.76 | MA10:- (1.129) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">49</td>
+            <td><strong>价值ETF易方达</strong><span class="code">159263</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.174</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.25%</td>
+            <td>MACD↓</td>
+            <td><span class="badge death">MACD 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/159263.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:死叉 (DIF:0.001) | KDJ:- (K:40.50 D:55.15) | RSI:慢47.19 快38.85 | MA10:- (1.185) | BOLL:-</div>
+                    <div class="signal-desc">DIF(0.001) 下穿 DEA(0.001)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">50</td>
+            <td><strong>创业板人工智能ETF</strong><span class="code">159363</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.321</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.30%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.052) | KDJ:- (K:78.44 D:75.54) | RSI:慢62.87 快68.12 | MA10:- (1.281) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">51</td>
+            <td><strong>成长ETF易方达</strong><span class="code">159259</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.384</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.36%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.063) | KDJ:- (K:96.38 D:95.50) | RSI:慢71.27 快79.65 | MA10:- (1.332) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">52</td>
+            <td><strong>华能水电</strong><span class="code">600025</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">9.59</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.42%</td>
+            <td>RSI↓,BOLL↓</td>
+            <td><span class="badge death">RSI 死叉</span><span class="badge death">BOLL 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/600025.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:-0.042) | KDJ:- (K:42.93 D:41.68) | RSI:慢46.77 快45.78 | MA10:- (9.633) | BOLL:下穿中轨</div>
+                    <div class="signal-desc">快线RSI(45.78) 下穿慢线RSI(46.77); 收盘价(9.590) 下穿中轨(9.604)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">53</td>
+            <td><strong>光伏ETF银华</strong><span class="code">516880</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">0.923</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.43%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:-0.002) | KDJ:- (K:83.95 D:76.48) | RSI:慢53.59 快65.17 | MA10:- (0.904) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">54</td>
+            <td><strong>A500ETF易方达</strong><span class="code">159361</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.328</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.45%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.018) | KDJ:- (K:95.31 D:94.05) | RSI:慢64.44 快76.11 | MA10:- (1.302) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">55</td>
+            <td><strong>光伏ETF华泰柏瑞</strong><span class="code">515790</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.096</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.45%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:-0.003) | KDJ:- (K:84.04 D:76.87) | RSI:慢53.67 快65.26 | MA10:- (1.072) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">56</td>
+            <td><strong>沪深300ETF易方达</strong><span class="code">510310</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">4.729</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.55%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.057) | KDJ:- (K:93.94 D:93.31) | RSI:慢63.14 快72.57 | MA10:- (4.672) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">57</td>
+            <td><strong>电网设备ETF华夏</strong><span class="code">159326</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">2.062</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.63%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.040) | KDJ:- (K:84.41 D:77.34) | RSI:慢60.67 快68.62 | MA10:- (2.000) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">58</td>
+            <td><strong>人工智能ETF易方达</strong><span class="code">159819</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.888</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.63%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.072) | KDJ:- (K:93.50 D:91.02) | RSI:慢68.71 快78.21 | MA10:- (1.792) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">59</td>
+            <td><strong>券商ETF华宝</strong><span class="code">512000</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">0.517</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.77%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:-0.005) | KDJ:- (K:76.88 D:76.75) | RSI:慢49.20 快55.91 | MA10:- (0.514) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">60</td>
+            <td><strong>三环集团</strong><span class="code">300408</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">86.3</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.78%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:6.991) | KDJ:- (K:93.08 D:92.09) | RSI:慢78.70 快87.12 | MA10:- (79.547) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">61</td>
+            <td><strong>煤炭ETF国泰</strong><span class="code">515220</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.246</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.88%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/515220.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.018) | KDJ:死叉 (K:66.71 D:72.43) | RSI:慢51.65 快43.98 | MA10:- (1.272) | BOLL:-</div>
+                    <div class="signal-desc">K(66.71) 下穿 D(72.43)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">62</td>
+            <td><strong>创业板50ETF华安</strong><span class="code">159949</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.821</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.92%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.063) | KDJ:- (K:90.48 D:87.52) | RSI:慢64.37 快67.32 | MA10:- (1.782) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">63</td>
+            <td><strong>日本东证指数ETF</strong><span class="code">513800</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.793</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.94%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.008) | KDJ:- (K:72.68 D:64.08) | RSI:慢55.54 快63.86 | MA10:- (1.748) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">64</td>
+            <td><strong>科创创业人工智能ETF</strong><span class="code">159142</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.325</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-0.97%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.051) | KDJ:- (K:93.17 D:90.22) | RSI:慢68.04 快77.64 | MA10:- (1.241) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">65</td>
+            <td><strong>协鑫能科</strong><span class="code">002015</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">20.38</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.02%</td>
+            <td>MACD↑</td>
+            <td><span class="badge golden">MACD 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/002015.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:金叉 (DIF:0.934) | KDJ:- (K:62.84 D:56.98) | RSI:慢58.94 快62.71 | MA10:- (19.418) | BOLL:-</div>
+                    <div class="signal-desc">DIF(0.934) 上穿 DEA(0.926)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">66</td>
+            <td><strong>科创综指ETF华夏</strong><span class="code">589000</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.631</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.03%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.051) | KDJ:- (K:93.74 D:93.11) | RSI:慢68.52 快78.71 | MA10:- (1.542) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">67</td>
+            <td><strong>日经225ETF华安</strong><span class="code">513880</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">2.002</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.04%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.044) | KDJ:- (K:91.46 D:90.88) | RSI:慢64.38 快74.80 | MA10:- (1.913) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">68</td>
+            <td><strong>储能ETF易方达</strong><span class="code">159566</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">2.383</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.24%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.041) | KDJ:- (K:88.76 D:87.25) | RSI:慢57.34 快59.93 | MA10:- (2.345) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">69</td>
+            <td><strong>兴森科技</strong><span class="code">002436</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">32.01</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.26%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:1.836) | KDJ:- (K:89.96 D:86.50) | RSI:慢69.94 快78.47 | MA10:- (29.173) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">70</td>
+            <td><strong>科创AIETF博时</strong><span class="code">588790</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">0.95</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.35%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.020) | KDJ:- (K:91.72 D:89.66) | RSI:慢64.44 快76.50 | MA10:- (0.878) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">71</td>
+            <td><strong>稀有金属ETF嘉实</strong><span class="code">562800</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.183</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.50%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/562800.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.033) | KDJ:死叉 (K:88.67 D:89.20) | RSI:慢60.41 快64.24 | MA10:- (1.147) | BOLL:-</div>
+                    <div class="signal-desc">K(88.67) 下穿 D(89.20)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">72</td>
+            <td><strong>信创ETF易方达</strong><span class="code">159540</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">2.014</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.80%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/159540.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.066) | KDJ:死叉 (K:91.37 D:92.14) | RSI:慢66.54 快73.63 | MA10:- (1.890) | BOLL:-</div>
+                    <div class="signal-desc">K(91.37) 下穿 D(92.14)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">73</td>
+            <td><strong>中国电建</strong><span class="code">601669</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">5.85</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-1.85%</td>
+            <td>MACD↑</td>
+            <td><span class="badge golden">MACD 金叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/601669.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:金叉 (DIF:-0.015) | KDJ:- (K:47.44 D:39.27) | RSI:慢51.56 快56.48 | MA10:- (5.760) | BOLL:-</div>
+                    <div class="signal-desc">DIF(-0.015) 上穿 DEA(-0.018)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">74</td>
+            <td><strong>半导体设备ETF</strong><span class="code">159516</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.029</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.00%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.035) | KDJ:- (K:84.81 D:87.38) | RSI:慢66.26 快75.09 | MA10:- (0.979) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">75</td>
+            <td><strong>电池ETF招商</strong><span class="code">561910</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">0.968</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.02%</td>
+            <td>KDJ↓,RSI↓</td>
+            <td><span class="badge death">KDJ 死叉</span><span class="badge death">RSI 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/561910.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.032) | KDJ:死叉 (K:90.63 D:92.82) | RSI:慢61.86 快61.43 | MA10:- (0.949) | BOLL:-</div>
+                    <div class="signal-desc">K(90.63) 下穿 D(92.82); 快线RSI(61.43) 下穿慢线RSI(61.86)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">76</td>
+            <td><strong>集成电路ETF国泰</strong><span class="code">159546</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">2.39</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.13%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/159546.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.095) | KDJ:死叉 (K:91.48 D:92.39) | RSI:慢68.77 快76.51 | MA10:- (2.219) | BOLL:-</div>
+                    <div class="signal-desc">K(91.48) 下穿 D(92.39)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">77</td>
+            <td><strong>科创50ETF华夏</strong><span class="code">588000</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.727</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.37%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.054) | KDJ:- (K:85.69 D:88.65) | RSI:慢67.43 快74.38 | MA10:- (1.620) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">78</td>
+            <td><strong>半导体ETF国联安</strong><span class="code">512480</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.902</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.41%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/512480.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.072) | KDJ:死叉 (K:87.86 D:89.95) | RSI:慢68.19 快75.07 | MA10:- (1.780) | BOLL:-</div>
+                    <div class="signal-desc">K(87.86) 下穿 D(89.95)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">79</td>
+            <td><strong>芯片ETF易方达</strong><span class="code">516350</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.538</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.53%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/516350.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.058) | KDJ:死叉 (K:87.38 D:89.86) | RSI:慢67.94 快74.59 | MA10:- (1.441) | BOLL:-</div>
+                    <div class="signal-desc">K(87.38) 下穿 D(89.86)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">80</td>
+            <td><strong>芯片ETF汇添富</strong><span class="code">516920</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.32</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.58%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/516920.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.048) | KDJ:死叉 (K:87.41 D:89.71) | RSI:慢67.81 快74.47 | MA10:- (1.237) | BOLL:-</div>
+                    <div class="signal-desc">K(87.41) 下穿 D(89.71)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">81</td>
+            <td><strong>集成电路ETF嘉实</strong><span class="code">562820</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">2.948</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.64%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/562820.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.117) | KDJ:死叉 (K:90.00 D:91.24) | RSI:慢68.05 快74.53 | MA10:- (2.744) | BOLL:-</div>
+                    <div class="signal-desc">K(90.00) 下穿 D(91.24)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">82</td>
+            <td><strong>芯片ETF国泰</strong><span class="code">512760</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.026</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.66%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.037) | KDJ:- (K:86.27 D:89.08) | RSI:慢67.38 快73.65 | MA10:- (0.965) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">83</td>
+            <td><strong>电池ETF广发</strong><span class="code">159755</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">1.221</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.71%</td>
+            <td>KDJ↓,RSI↓</td>
+            <td><span class="badge death">KDJ 死叉</span><span class="badge death">RSI 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/159755.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.036) | KDJ:死叉 (K:85.43 D:89.53) | RSI:慢57.75 快53.01 | MA10:- (1.219) | BOLL:-</div>
+                    <div class="signal-desc">K(85.43) 下穿 D(89.53); 快线RSI(53.01) 下穿慢线RSI(57.75)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">84</td>
+            <td><strong>科创芯片ETF嘉实</strong><span class="code">588200</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">3.241</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.73%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.153) | KDJ:- (K:88.10 D:90.48) | RSI:慢70.51 快76.11 | MA10:- (2.997) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">85</td>
+            <td><strong>芯片ETF华夏</strong><span class="code">159995</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">2.173</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.86%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/159995.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:0.075) | KDJ:死叉 (K:86.99 D:89.15) | RSI:慢67.13 快73.18 | MA10:- (2.034) | BOLL:-</div>
+                    <div class="signal-desc">K(86.99) 下穿 D(89.15)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">86</td>
+            <td><strong>巴西ETF易方达</strong><span class="code">520870</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">1.222</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-2.94%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:0.019) | KDJ:- (K:29.20 D:37.70) | RSI:慢49.06 快37.10 | MA10:- (1.252) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">87</td>
+            <td><strong>德明利</strong><span class="code">001309</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">597.71</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-3.05%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:61.850) | KDJ:- (K:88.07 D:86.85) | RSI:慢74.70 快77.03 | MA10:- (533.336) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">88</td>
+            <td><strong>通富微电</strong><span class="code">002156</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">57.16</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-3.25%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/002156.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:2.164) | KDJ:死叉 (K:85.75 D:86.69) | RSI:慢65.61 快72.39 | MA10:- (52.046) | BOLL:-</div>
+                    <div class="signal-desc">K(85.75) 下穿 D(86.69)</div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">89</td>
+            <td><strong>中国长城</strong><span class="code">000066</span></td>
+            <td><span class="market-tag">SZ</span></td>
+            <td class="num">23.09</td>
+            <td class="num" style="color:#B88A8A;font-weight:bold;">-3.71%</td>
+            <td>-</td>
+            <td></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    
+                    <div class="indicator-text">MACD:- (DIF:1.200) | KDJ:- (K:91.83 D:88.54) | RSI:慢76.32 快84.23 | MA10:- (18.956) | BOLL:-</div>
+                    <div class="signal-desc"></div>
+                </div>
+            </td>
+        </tr>
+        <tr class="stock-row" onclick="toggleRow(this)">
+            <td class="num">90</td>
+            <td><strong>海光信息</strong><span class="code">688041</span></td>
+            <td><span class="market-tag">SH</span></td>
+            <td class="num">323.28</td>
+            <td class="num" style="color:#A06B6B;font-weight:bold;">-5.36%</td>
+            <td>KDJ↓</td>
+            <td><span class="badge death">KDJ 死叉</span></td>
+        </tr>
+        <tr class="detail-row" style="display:none;">
+            <td colspan="7">
+                <div class="detail-card">
+                    <div class="chart-wrap">
+                <img src="charts/688041.png" style="width:100%;max-width:560px;border-radius:6px;" alt="K-line">
+            </div>
+                    <div class="indicator-text">MACD:- (DIF:19.406) | KDJ:死叉 (K:83.08 D:84.50) | RSI:慢66.45 快67.06 | MA10:- (297.718) | BOLL:-</div>
+                    <div class="signal-desc">K(83.08) 下穿 D(84.50)</div>
+                </div>
+            </td>
+        </tr></tbody>
+        </table>
+    </div>
+    <div class="footer">Stock Monitor · 每个交易日 14:30 更新</div>
+</div>
+<script>
+function toggleRow(tr) {
+    var detail = tr.nextElementSibling;
+    if (detail && detail.classList.contains('detail-row')) {
+        var visible = detail.style.display === 'table-row';
+        detail.style.display = visible ? 'none' : 'table-row';
+        tr.classList.toggle('active', !visible);
+    }
+}
+</script>
+</body>
+</html>
