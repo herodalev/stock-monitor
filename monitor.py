@@ -1,5 +1,6 @@
 """股票技术指标监控主程序"""
 
+import base64
 import json
 import os
 from datetime import datetime
@@ -11,6 +12,9 @@ from email_sender import send_email
 
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SITE_DIR = os.path.join(BASE_DIR, "site")
+CHART_DIR = os.path.join(SITE_DIR, "charts")
 
 # 常用股票名称映射（便于识别）
 COMMON_NAMES = {
@@ -29,24 +33,33 @@ COMMON_NAMES = {
 
 
 def load_config():
-    """加载配置"""
     if not os.path.exists(CONFIG_FILE):
         return None
-
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_config(config):
-    """保存配置"""
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(config, f, ensure_ascii=False, indent=2)
+def _get_indicator_label(macd_golden, macd_death, kdj_golden, kdj_death,
+                         rsi_golden, rsi_death, ma_golden, ma_death,
+                         boll_golden, boll_death):
+    """生成简短的指标状态标签"""
+    parts = []
+    for name, g, d in [("MACD", macd_golden, macd_death),
+                        ("KDJ", kdj_golden, kdj_death),
+                        ("RSI", rsi_golden, rsi_death),
+                        ("MA", ma_golden, ma_death),
+                        ("BOLL", boll_golden, boll_death)]:
+        if g:
+            parts.append(f"{name}↑")
+        elif d:
+            parts.append(f"{name}↓")
+    return ",".join(parts) if parts else "-"
 
 
 def check_signals(stock_code, market, stock_name):
     """
     检查单只股票的技术指标信号
-    返回: (has_signal, signal_info_dict or None)
+    返回: (has_signal, info_dict)
     """
     print(f"  -> 获取 {stock_name}({stock_code}) 数据...", end="")
     kline = get_stock_kline(stock_code, market, days=240)
@@ -63,68 +76,64 @@ def check_signals(stock_code, market, stock_name):
 
     signals = []
 
-    # MACD(19,39,9) 检测
     dif, dea, hist, macd_golden, macd_death = calc_macd(closes)
     if macd_golden:
         signals.append(("MACD", "金叉", f"DIF({dif:.3f}) 上穿 DEA({dea:.3f})"))
     if macd_death:
         signals.append(("MACD", "死叉", f"DIF({dif:.3f}) 下穿 DEA({dea:.3f})"))
 
-    # KDJ(18,3,3) 检测
     k, d, j, kdj_golden, kdj_death = calc_kdj(highs, lows, closes)
     if kdj_golden:
         signals.append(("KDJ", "金叉", f"K({k:.2f}) 上穿 D({d:.2f})"))
     if kdj_death:
         signals.append(("KDJ", "死叉", f"K({k:.2f}) 下穿 D({d:.2f})"))
 
-    # RSI(21,7) 双线交叉检测
     rsi_slow, rsi_fast, rsi_golden, rsi_death = calc_rsi(closes)
     if rsi_golden:
         signals.append(("RSI", "金叉", f"快线RSI({rsi_fast:.2f}) 上穿慢线RSI({rsi_slow:.2f})"))
     if rsi_death:
         signals.append(("RSI", "死叉", f"快线RSI({rsi_fast:.2f}) 下穿慢线RSI({rsi_slow:.2f})"))
 
-    # 均线(10) 检测
     ma_val, ma_golden, ma_death = calc_ma_cross(closes)
     if ma_golden:
         signals.append(("MA10", "金叉", f"收盘价({closes[-1]:.3f}) 上穿 MA10({ma_val:.3f})"))
     if ma_death:
         signals.append(("MA10", "死叉", f"收盘价({closes[-1]:.3f}) 下穿 MA10({ma_val:.3f})"))
 
-    # 布林带(20,2) 检测
     boll_mid, boll_upper, boll_lower, boll_golden, boll_death = calc_boll(closes)
     if boll_golden:
         signals.append(("BOLL", "金叉", f"收盘价({closes[-1]:.3f}) 上穿中轨({boll_mid:.3f})"))
     if boll_death:
         signals.append(("BOLL", "死叉", f"收盘价({closes[-1]:.3f}) 下穿中轨({boll_mid:.3f})"))
 
-    if signals:
-        latest_date = dates[-1] if dates else datetime.now().strftime("%Y-%m-%d")
-        latest_close = closes[-1]
-        latest_change = ((closes[-1] - closes[-2]) / closes[-2] * 100) if len(closes) >= 2 else 0
+    latest_date = dates[-1] if dates else datetime.now().strftime("%Y-%m-%d")
+    latest_close = closes[-1]
+    latest_change = ((closes[-1] - closes[-2]) / closes[-2] * 100) if len(closes) >= 2 else 0
 
-        # 生成K线图
-        chart_b64 = generate_chart(kline, stock_name, stock_code)
+    has_signal = len(signals) > 0
+    chart_b64 = generate_chart(kline, stock_name, stock_code) if has_signal else ""
 
-        return True, {
-            "code": stock_code,
-            "market": market,
-            "name": stock_name,
-            "date": latest_date,
-            "close": latest_close,
-            "change": latest_change,
-            "signals": signals,
-            "chart_b64": chart_b64,
-            "indicators": {
-                "MACD": f"{'金叉' if macd_golden else '死叉' if macd_death else '-'} (DIF:{dif:.3f})" if dif is not None else "-",
-                "KDJ": f"{'金叉' if kdj_golden else '死叉' if kdj_death else '-'} (K:{k:.2f} D:{d:.2f})" if k is not None else "-",
-                "RSI": f"慢{rsi_slow:.2f} 快{rsi_fast:.2f}" if rsi_slow is not None else "-",
-                "MA10": f"{'上穿' if ma_golden else '下穿' if ma_death else '-'} ({ma_val:.3f})" if ma_val is not None else "-",
-                "BOLL": f"{'上穿中轨' if boll_golden else '下穿中轨' if boll_death else '-'}" if boll_mid is not None else "-",
-            }
-        }
-
-    return False, None
+    info = {
+        "code": stock_code,
+        "market": market,
+        "name": stock_name,
+        "date": latest_date,
+        "close": latest_close,
+        "change": latest_change,
+        "signals": signals,
+        "chart_b64": chart_b64,
+        "indicators": {
+            "MACD": f"{'金叉' if macd_golden else '死叉' if macd_death else '-'} (DIF:{dif:.3f})" if dif is not None else "-",
+            "KDJ": f"{'金叉' if kdj_golden else '死叉' if kdj_death else '-'} (K:{k:.2f} D:{d:.2f})" if k is not None else "-",
+            "RSI": f"慢{rsi_slow:.2f} 快{rsi_fast:.2f}" if rsi_slow is not None else "-",
+            "MA10": f"{'上穿' if ma_golden else '下穿' if ma_death else '-'} ({ma_val:.3f})" if ma_val is not None else "-",
+            "BOLL": f"{'上穿中轨' if boll_golden else '下穿中轨' if boll_death else '-'}" if boll_mid is not None else "-",
+        },
+        "label": _get_indicator_label(macd_golden, macd_death, kdj_golden, kdj_death,
+                                       rsi_golden, rsi_death, ma_golden, ma_death,
+                                       boll_golden, boll_death),
+    }
+    return has_signal, info
 
 
 def build_email_body(signals_list):
@@ -136,7 +145,6 @@ def build_email_body(signals_list):
         change_color = "#8FA88A" if item["change"] >= 0 else "#B88A8A"
         change_sign = "+" if item["change"] >= 0 else ""
 
-        # 卡片左边框颜色：根据信号类型
         has_golden = any(s[1] == "金叉" for s in item["signals"])
         has_death = any(s[1] == "死叉" for s in item["signals"])
         if has_golden and not has_death:
@@ -146,7 +154,6 @@ def build_email_body(signals_list):
         else:
             accent = "#B5A488"
 
-        # 信号标签
         badges = ""
         for s in item["signals"]:
             bg = "#A1B5A0" if s[1] == "金叉" else "#C4A4A4"
@@ -197,6 +204,33 @@ def build_email_body(signals_list):
     return html
 
 
+def _save_site_data(all_results, signals_found):
+    """保存站点数据：results.json + K线图PNG"""
+    os.makedirs(CHART_DIR, exist_ok=True)
+
+    site_results = []
+    for item in all_results:
+        entry = {k: v for k, v in item.items() if k != "chart_b64"}
+        # Save chart to file if exists
+        if item.get("chart_b64"):
+            fname = f"{item['code']}.png"
+            fpath = os.path.join(CHART_DIR, fname)
+            with open(fpath, "wb") as f:
+                f.write(base64.b64decode(item["chart_b64"]))
+            entry["chart_file"] = f"charts/{item['code']}.png"
+        site_results.append(entry)
+
+    data = {
+        "update_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "total": len(site_results),
+        "signal_count": len(signals_found),
+        "stocks": site_results,
+    }
+    with open(os.path.join(SITE_DIR, "results.json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"站点数据已保存: {len(site_results)}只股票, {len(signals_found)}个信号")
+
+
 def run_monitor():
     """主监控流程"""
     config = load_config()
@@ -221,14 +255,21 @@ def run_monitor():
     print(f"{'='*60}\n")
 
     signals_found = []
+    all_results = []
 
     for s in stocks:
         code = s["code"]
         market = s["market"]
         name = s.get("name") or COMMON_NAMES.get(code.upper(), code)
         has_signal, info = check_signals(code, market, name)
-        if has_signal:
-            signals_found.append(info)
+        if info:
+            all_results.append(info)
+            if has_signal:
+                signals_found.append(info)
+
+    # 按涨跌幅从大到小排序
+    signals_found.sort(key=lambda x: x["change"], reverse=True)
+    all_results.sort(key=lambda x: x.get("change", 0), reverse=True)
 
     print(f"\n{'='*60}")
     if signals_found:
@@ -246,6 +287,9 @@ def run_monitor():
             print(f"邮件发送失败: {msg}")
     else:
         print("未检测到金叉/死叉信号")
+
+    # 保存站点数据
+    _save_site_data(all_results, signals_found)
     print(f"{'='*60}\n")
 
 

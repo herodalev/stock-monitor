@@ -28,3 +28,14 @@ jobs:
 
       - name: Run monitor
         run: PYTHONIOENCODING=utf-8 python monitor.py
+
+      - name: Generate site
+        run: PYTHONIOENCODING=utf-8 python site_generator.py
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          keep_files: false
