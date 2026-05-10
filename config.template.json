@@ -1,0 +1,13 @@
+{
+  "stocks": [
+    {"code": "515880", "market": "SH", "name": "通信ETF国泰"},
+    {"code": "600584", "market": "SH", "name": "长电科技"}
+  ],
+  "email": {
+    "smtp_server": "smtp.qq.com",
+    "smtp_port": 465,
+    "sender": "your_email@qq.com",
+    "password": "YOUR_AUTH_CODE",
+    "receiver": "your_email@qq.com"
+  }
+}

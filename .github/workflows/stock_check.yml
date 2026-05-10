@@ -1,0 +1,28 @@
+name: Stock Monitor
+
+on:
+  schedule:
+    # 14:30 CST = 06:30 UTC, 周一至周五
+    - cron: '30 6 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests numpy
+
+      - name: Decode config
+        run: echo "$CONFIG" | base64 -d > config.json
+        env:
+          CONFIG: ${{ secrets.CONFIG_JSON }}
+
+      - name: Run monitor
+        run: PYTHONIOENCODING=utf-8 python monitor.py

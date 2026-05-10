@@ -1,0 +1,5 @@
+config.json
+__pycache__/
+*.pyc
+monitor_log.txt
+task_schedule.xml
