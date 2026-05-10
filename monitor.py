@@ -1,22 +1,18 @@
-"""股票技术指标监控主程序"""
+"""股票技术指标监控主程序 - 轻量版"""
 
-import base64
 import json
 import os
 from datetime import datetime
 
 from stock_data import get_stock_kline
 from indicators import calc_macd, calc_kdj, calc_rsi, calc_ma_cross, calc_boll
-from chart_generator import generate_chart
 from email_sender import send_email
 
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SITE_DIR = os.path.join(BASE_DIR, "site")
-CHART_DIR = os.path.join(SITE_DIR, "charts")
 
-# 常用股票名称映射（便于识别）
 COMMON_NAMES = {
     "000001": "平安银行", "000333": "美的集团", "000651": "格力电器",
     "000858": "五粮液", "002415": "海康威视", "002594": "比亚迪",
@@ -31,6 +27,20 @@ COMMON_NAMES = {
     "META": "Meta", "FUTU": "富途控股",
 }
 
+# 轻快明亮配色（中国股市惯例：红色=涨/金叉，绿色=跌/死叉）
+C_BG = "#F0F4F8"
+C_CARD = "#FFFFFF"
+C_TEXT = "#2C3E50"
+C_TEXT2 = "#7F8C8D"
+C_TEXT3 = "#95A5A6"
+C_ACCENT = "#3498DB"
+C_UP = "#E74C3C"       # 涨/金叉 — 红色
+C_UP_LIGHT = "#FDEDEC"
+C_DOWN = "#27AE60"     # 跌/死叉 — 绿色
+C_DOWN_LIGHT = "#E8F8F0"
+C_BORDER = "#E8ECF0"
+C_STAT_BG = "#EBF5FB"
+
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -42,7 +52,6 @@ def load_config():
 def _get_indicator_label(macd_golden, macd_death, kdj_golden, kdj_death,
                          rsi_golden, rsi_death, ma_golden, ma_death,
                          boll_golden, boll_death):
-    """生成简短的指标状态标签"""
     parts = []
     for name, g, d in [("MACD", macd_golden, macd_death),
                         ("KDJ", kdj_golden, kdj_death),
@@ -50,17 +59,14 @@ def _get_indicator_label(macd_golden, macd_death, kdj_golden, kdj_death,
                         ("MA", ma_golden, ma_death),
                         ("BOLL", boll_golden, boll_death)]:
         if g:
-            parts.append(f"{name}↑")
+            parts.append(f"{name}▲")
         elif d:
-            parts.append(f"{name}↓")
+            parts.append(f"{name}▼")
     return ",".join(parts) if parts else "-"
 
 
 def check_signals(stock_code, market, stock_name):
-    """
-    检查单只股票的技术指标信号
-    返回: (has_signal, info_dict)
-    """
+    """检查单只股票的技术指标信号"""
     print(f"  -> 获取 {stock_name}({stock_code}) 数据...", end="")
     kline = get_stock_kline(stock_code, market, days=240)
     if not kline or len(kline["closes"]) < 50:
@@ -111,7 +117,6 @@ def check_signals(stock_code, market, stock_name):
     latest_change = ((closes[-1] - closes[-2]) / closes[-2] * 100) if len(closes) >= 2 else 0
 
     has_signal = len(signals) > 0
-    chart_b64 = generate_chart(kline, stock_name, stock_code) if has_signal else ""
 
     info = {
         "code": stock_code,
@@ -121,7 +126,6 @@ def check_signals(stock_code, market, stock_name):
         "close": latest_close,
         "change": latest_change,
         "signals": signals,
-        "chart_b64": chart_b64,
         "indicators": {
             "MACD": f"{'金叉' if macd_golden else '死叉' if macd_death else '-'} (DIF:{dif:.3f})" if dif is not None else "-",
             "KDJ": f"{'金叉' if kdj_golden else '死叉' if kdj_death else '-'} (K:{k:.2f} D:{d:.2f})" if k is not None else "-",
@@ -137,67 +141,89 @@ def check_signals(stock_code, market, stock_name):
 
 
 def build_email_body(signals_list):
-    """生成邮件HTML正文 - 莫兰迪配色卡片布局"""
+    """生成邮件HTML正文 - 轻快明亮配色"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     cards_html = ""
     for item in signals_list:
-        change_color = "#8FA88A" if item["change"] >= 0 else "#B88A8A"
+        change_color = C_UP if item["change"] >= 0 else C_DOWN
         change_sign = "+" if item["change"] >= 0 else ""
 
         has_golden = any(s[1] == "金叉" for s in item["signals"])
         has_death = any(s[1] == "死叉" for s in item["signals"])
         if has_golden and not has_death:
-            accent = "#A1B5A0"
+            accent = C_UP
+            accent_bg = C_UP_LIGHT
         elif has_death and not has_golden:
-            accent = "#C4A4A4"
+            accent = C_DOWN
+            accent_bg = C_DOWN_LIGHT
         else:
-            accent = "#B5A488"
+            accent = C_ACCENT
+            accent_bg = "#EBF5FB"
+
+        # 构建指标信号映射
+        sig_map = {s[0]: s[1] for s in item["signals"]}
+        C_MUTED = "#F0F4F8"  # 无信号指标弱化底色
 
         badges = ""
         for s in item["signals"]:
-            bg = "#A1B5A0" if s[1] == "金叉" else "#C4A4A4"
+            bg = C_UP if s[1] == "金叉" else C_DOWN
             badges += (
                 f'<span style="display:inline-block;background:{bg};color:#fff;'
                 f'font-size:11px;font-weight:bold;padding:2px 8px;border-radius:4px;'
                 f'margin:2px 4px 2px 0;">{s[0]} {s[1]}</span>'
             )
 
+        def _pill(name, value):
+            st = sig_map.get(name.split('(')[0])  # "MACD(19,39,9)" -> "MACD"
+            if st == "金叉":
+                bg = C_UP_LIGHT
+            elif st == "死叉":
+                bg = C_DOWN_LIGHT
+            else:
+                bg = C_MUTED
+            return (f'<span style="display:inline-block;background:{bg};border-radius:6px;'
+                    f'padding:4px 10px;margin:3px 6px 3px 0;font-size:11px;'
+                    f'color:{C_TEXT if st else C_TEXT3};">'
+                    f'<b>{name}</b>: {value}</span>')
+
+        pills_row1 = _pill("BOLL(20,2)", item['indicators']['BOLL']) + _pill("MA10", item['indicators']['MA10'])
+        pills_row2 = (_pill("MACD(19,39,9)", item['indicators']['MACD']) +
+                      _pill("KDJ(18,3,3)", item['indicators']['KDJ']) +
+                      _pill("RSI(21,7)", item['indicators']['RSI']))
+
         cards_html += f"""
-        <div style="background:#FCFAF7;border:1px solid #D6CDBF;border-radius:10px;padding:16px;margin-bottom:14px;border-left:4px solid {accent};box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+        <div style="background:{C_CARD};border:1px solid {C_BORDER};border-radius:10px;padding:18px;margin-bottom:14px;border-left:4px solid {accent};box-shadow:0 1px 4px rgba(0,0,0,0.04);">
             <div style="margin-bottom:8px;">
-                <span style="font-size:15px;font-weight:bold;color:#5A4B3C;">{item['name']}</span>
-                <span style="font-size:12px;color:#A89888;"> {item['code']}</span>
-                <span style="font-size:11px;color:#B5A898;background:#F0EBE4;padding:1px 6px;border-radius:3px;margin-left:4px;">{item['market']}</span>
+                <span style="font-size:15px;font-weight:bold;color:{C_TEXT};">{item['name']}</span>
+                <span style="font-size:12px;color:{C_TEXT2};"> {item['code']}</span>
+                <span style="font-size:11px;color:{C_TEXT3};background:{C_STAT_BG};padding:1px 6px;border-radius:3px;margin-left:4px;">{item['market']}</span>
             </div>
-            <div style="margin-bottom:8px;font-size:14px;color:#5A4B3C;">
+            <div style="margin-bottom:10px;font-size:14px;color:{C_TEXT};">
                 收盘 <b style="font-size:17px;">{item['close']:.3f}</b>
                 <span style="color:{change_color};font-weight:bold;"> ({change_sign}{item['change']:.2f}%)</span>
-                <span style="color:#9A8B7A;font-size:12px;margin-left:6px;">{item['date']}</span>
+                <span style="color:{C_TEXT2};font-size:12px;margin-left:6px;">{item['date']}</span>
             </div>
-            <div style="margin-bottom:6px;">{badges}</div>
-            <div style="margin-bottom:8px;">
-                <img src="data:image/png;base64,{item['chart_b64']}" style="width:100%;max-width:560px;border-radius:6px;display:block;" alt="K-line">
-            </div>
-            <div style="font-size:11px;color:#9A8B7A;border-top:1px solid #E5DDD4;padding-top:7px;">
-                MACD: {item['indicators']['MACD']} &nbsp;|&nbsp; KDJ: {item['indicators']['KDJ']} &nbsp;|&nbsp; RSI: {item['indicators']['RSI']}<br>
-                MA10: {item['indicators']['MA10']} &nbsp;|&nbsp; BOLL: {item['indicators']['BOLL']}
+            <div style="margin-bottom:4px;">{badges}</div>
+            <div style="font-size:11px;color:{C_TEXT2};border-top:1px solid {C_BORDER};padding-top:8px;margin-top:6px;">
+                {pills_row1}<br>
+                {pills_row2}
             </div>
         </div>"""
 
     html = f"""<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
-<body style="margin:0;padding:20px;background:#F2EDE7;font-family:'Microsoft YaHei','PingFang SC',Arial,sans-serif;">
+<body style="margin:0;padding:20px;background:{C_BG};font-family:'Microsoft YaHei','PingFang SC',Arial,sans-serif;">
     <div style="max-width:620px;margin:0 auto;">
-        <div style="background:#FCFAF7;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-            <div style="color:#8B7E6F;font-size:11px;letter-spacing:2px;margin-bottom:4px;">STOCK SIGNAL REPORT</div>
-            <h1 style="color:#5A4B3C;font-size:20px;margin:0 0 4px 0;font-weight:normal;">技术指标信号提醒</h1>
-            <p style="color:#9A8B7A;font-size:12px;margin:0 0 2px 0;">检测时间: {now} &nbsp;|&nbsp; 信号数: {len(signals_list)}</p>
-            <p style="color:#B5A898;font-size:11px;margin:0;">MACD(19,39,9) · KDJ(18,3,3) · RSI(21,7) · MA10 · BOLL(20,2)</p>
+        <div style="background:{C_CARD};border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+            <div style="color:{C_ACCENT};font-size:11px;letter-spacing:2px;margin-bottom:4px;font-weight:bold;">STOCK SIGNAL REPORT</div>
+            <h1 style="color:{C_TEXT};font-size:20px;margin:0 0 4px 0;font-weight:bold;">技术指标信号提醒</h1>
+            <p style="color:{C_TEXT2};font-size:12px;margin:0 0 2px 0;">检测时间: {now} | 信号数: {len(signals_list)}</p>
+            <p style="color:{C_TEXT3};font-size:11px;margin:0;">BOLL(20,2) · MA10 · MACD(19,39,9) · KDJ(18,3,3) · RSI(21,7)</p>
         </div>
         {cards_html}
-        <div style="text-align:center;color:#B5A898;font-size:11px;padding:10px 0 20px;">本邮件由股票技术指标监控系统自动发送</div>
+        <div style="text-align:center;color:{C_TEXT3};font-size:11px;padding:10px 0 20px;">本邮件由股票技术指标监控系统自动发送</div>
     </div>
 </body>
 </html>"""
@@ -205,19 +231,23 @@ def build_email_body(signals_list):
 
 
 def _save_site_data(all_results, signals_found):
-    """保存站点数据：results.json + K线图PNG"""
-    os.makedirs(CHART_DIR, exist_ok=True)
+    """保存站点数据到 results.json"""
+    os.makedirs(SITE_DIR, exist_ok=True)
 
+    # 移除信号描述（缩短JSON），只保留摘要
     site_results = []
     for item in all_results:
-        entry = {k: v for k, v in item.items() if k != "chart_b64"}
-        # Save chart to file if exists
-        if item.get("chart_b64"):
-            fname = f"{item['code']}.png"
-            fpath = os.path.join(CHART_DIR, fname)
-            with open(fpath, "wb") as f:
-                f.write(base64.b64decode(item["chart_b64"]))
-            entry["chart_file"] = f"charts/{item['code']}.png"
+        entry = {
+            "code": item["code"],
+            "market": item["market"],
+            "name": item["name"],
+            "date": item["date"],
+            "close": item["close"],
+            "change": item["change"],
+            "signals": [(s[0], s[1]) for s in item["signals"]],  # 只保留指标名和类型
+            "indicators": item["indicators"],
+            "label": item["label"],
+        }
         site_results.append(entry)
 
     data = {
@@ -228,6 +258,14 @@ def _save_site_data(all_results, signals_found):
     }
     with open(os.path.join(SITE_DIR, "results.json"), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # 按日期存档到 history/
+    today = datetime.now().strftime("%Y-%m-%d")
+    history_dir = os.path.join(SITE_DIR, "history")
+    os.makedirs(history_dir, exist_ok=True)
+    with open(os.path.join(history_dir, f"{today}.json"), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
     print(f"站点数据已保存: {len(site_results)}只股票, {len(signals_found)}个信号")
 
 
@@ -250,7 +288,7 @@ def run_monitor():
 
     print(f"\n{'='*60}")
     print(f"股票技术指标监控 - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    print(f"指标: MACD(19,39,9) KDJ(18,3,3) RSI(21,7) MA10 BOLL(20,2)")
+    print(f"指标: BOLL(20,2) MA10 MACD(19,39,9) KDJ(18,3,3) RSI(21,7)")
     print(f"监控股票数: {len(stocks)}")
     print(f"{'='*60}\n")
 
@@ -267,7 +305,6 @@ def run_monitor():
             if has_signal:
                 signals_found.append(info)
 
-    # 按涨跌幅从大到小排序
     signals_found.sort(key=lambda x: x["change"], reverse=True)
     all_results.sort(key=lambda x: x.get("change", 0), reverse=True)
 
@@ -288,7 +325,6 @@ def run_monitor():
     else:
         print("未检测到金叉/死叉信号")
 
-    # 保存站点数据
     _save_site_data(all_results, signals_found)
     print(f"{'='*60}\n")
 

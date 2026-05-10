@@ -2,6 +2,8 @@ name: Stock Monitor
 
 on:
   schedule:
+    # 11:00 CST = 03:00 UTC, 周一至周五
+    - cron: '0 3 * * 1-5'
     # 14:30 CST = 06:30 UTC, 周一至周五
     - cron: '30 6 * * 1-5'
   workflow_dispatch:
@@ -20,9 +22,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk 2>/dev/null
-          pip install requests numpy matplotlib
+        run: pip install requests
 
       - name: Decode config
         run: echo "$CONFIG" | base64 -d > config.json
