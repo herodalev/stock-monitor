@@ -27,19 +27,19 @@ COMMON_NAMES = {
     "META": "Meta", "FUTU": "富途控股",
 }
 
-# 轻快明亮配色（中国股市惯例：红色=涨/金叉，绿色=跌/死叉）
-C_BG = "#F0F4F8"
+# Apple Design System 配色
+C_BG = "#F2F2F7"
 C_CARD = "#FFFFFF"
-C_TEXT = "#2C3E50"
-C_TEXT2 = "#7F8C8D"
-C_TEXT3 = "#95A5A6"
-C_ACCENT = "#3498DB"
-C_UP = "#E74C3C"       # 涨/金叉 — 红色
-C_UP_LIGHT = "#FDEDEC"
-C_DOWN = "#27AE60"     # 跌/死叉 — 绿色
-C_DOWN_LIGHT = "#E8F8F0"
-C_BORDER = "#E8ECF0"
-C_STAT_BG = "#EBF5FB"
+C_TEXT = "#000000"
+C_TEXT2 = "#8E8E93"
+C_TEXT3 = "#C7C7CC"
+C_ACCENT = "#007AFF"
+C_UP = "#FF3B30"
+C_UP_LIGHT = "#FFF0EF"
+C_DOWN = "#34C759"
+C_DOWN_LIGHT = "#EEFFF4"
+C_BORDER = "#E5E5EA"
+C_MUTED_BG = "#F2F2F7"
 
 
 def load_config():
@@ -141,92 +141,77 @@ def check_signals(stock_code, market, stock_name):
 
 
 def build_email_body(signals_list):
-    """生成邮件HTML正文 - 轻快明亮配色"""
+    """生成邮件HTML正文 - Apple 设计风格"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     cards_html = ""
     for item in signals_list:
-        change_color = C_UP if item["change"] >= 0 else C_DOWN
-        change_sign = "+" if item["change"] >= 0 else ""
+        ch = item["change"]
+        accent = C_UP if ch >= 0 else C_DOWN
 
-        has_golden = any(s[1] == "金叉" for s in item["signals"])
-        has_death = any(s[1] == "死叉" for s in item["signals"])
-        if has_golden and not has_death:
-            accent = C_UP
-            accent_bg = C_UP_LIGHT
-        elif has_death and not has_golden:
-            accent = C_DOWN
-            accent_bg = C_DOWN_LIGHT
-        else:
-            accent = C_ACCENT
-            accent_bg = "#EBF5FB"
-
-        # 构建指标信号映射
         sig_map = {s[0]: s[1] for s in item["signals"]}
-        C_MUTED = "#F0F4F8"  # 无信号指标弱化底色
-
         badges = ""
         for s in item["signals"]:
             bg = C_UP if s[1] == "金叉" else C_DOWN
+            arrow = "▲" if s[1] == "金叉" else "▼"
             badges += (
                 f'<span style="display:inline-block;background:{bg};color:#fff;'
-                f'font-size:11px;font-weight:bold;padding:2px 8px;border-radius:4px;'
-                f'margin:2px 4px 2px 0;">{s[0]} {s[1]}</span>'
+                f'font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;'
+                f'margin:2px 4px 2px 0;">{s[0]} {arrow}</span>'
             )
+        if not badges:
+            badges = f'<span style="font-size:13px;color:{C_TEXT3};">—</span>'
 
         def _pill(name, value):
-            st = sig_map.get(name.split('(')[0])  # "MACD(19,39,9)" -> "MACD"
+            key = name.split('(')[0]
+            st = sig_map.get(key)
             if st == "金叉":
                 bg = C_UP_LIGHT
             elif st == "死叉":
                 bg = C_DOWN_LIGHT
             else:
-                bg = C_MUTED
-            return (f'<span style="display:inline-block;background:{bg};border-radius:6px;'
-                    f'padding:4px 10px;margin:3px 6px 3px 0;font-size:11px;'
+                bg = C_MUTED_BG
+            return (f'<span style="display:inline-block;background:{bg};border-radius:8px;'
+                    f'padding:5px 12px;margin:3px 6px 3px 0;font-size:12px;'
                     f'color:{C_TEXT if st else C_TEXT3};">'
-                    f'<b>{name}</b>: {value}</span>')
+                    f'<b>{name}</b>&nbsp;{value}</span>')
 
-        pills_row1 = _pill("BOLL(20,2)", item['indicators']['BOLL']) + _pill("MA10", item['indicators']['MA10'])
-        pills_row2 = (_pill("MACD(19,39,9)", item['indicators']['MACD']) +
-                      _pill("KDJ(18,3,3)", item['indicators']['KDJ']) +
-                      _pill("RSI(21,7)", item['indicators']['RSI']))
+        pills = (_pill("BOLL(20,2)", item['indicators']['BOLL']) +
+                 _pill("MA10", item['indicators']['MA10']) +
+                 _pill("MACD(19,39,9)", item['indicators']['MACD']) +
+                 _pill("KDJ(18,3,3)", item['indicators']['KDJ']) +
+                 _pill("RSI(21,7)", item['indicators']['RSI']))
 
         cards_html += f"""
-        <div style="background:{C_CARD};border:1px solid {C_BORDER};border-radius:10px;padding:18px;margin-bottom:14px;border-left:4px solid {accent};box-shadow:0 1px 4px rgba(0,0,0,0.04);">
-            <div style="margin-bottom:8px;">
-                <span style="font-size:15px;font-weight:bold;color:{C_TEXT};">{item['name']}</span>
-                <span style="font-size:12px;color:{C_TEXT2};"> {item['code']}</span>
-                <span style="font-size:11px;color:{C_TEXT3};background:{C_STAT_BG};padding:1px 6px;border-radius:3px;margin-left:4px;">{item['market']}</span>
-            </div>
-            <div style="margin-bottom:10px;font-size:14px;color:{C_TEXT};">
-                收盘 <b style="font-size:17px;">{item['close']:.3f}</b>
-                <span style="color:{change_color};font-weight:bold;"> ({change_sign}{item['change']:.2f}%)</span>
-                <span style="color:{C_TEXT2};font-size:12px;margin-left:6px;">{item['date']}</span>
-            </div>
-            <div style="margin-bottom:4px;">{badges}</div>
-            <div style="font-size:11px;color:{C_TEXT2};border-top:1px solid {C_BORDER};padding-top:8px;margin-top:6px;">
-                {pills_row1}<br>
-                {pills_row2}
-            </div>
+        <div style="background:{C_CARD};border-radius:16px;padding:18px 20px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);border-left:4px solid {accent};">
+          <div style="margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+            <span style="font-size:17px;font-weight:600;color:{C_TEXT};">{item['name']}</span>
+            <span style="font-size:13px;color:{C_TEXT3};">{item['code']}</span>
+            <span style="font-size:11px;color:{C_ACCENT};background:rgba(0,122,255,.08);padding:3px 8px;border-radius:6px;">{item['market']}</span>
+            <span style="flex:1;"></span>
+            <span style="font-size:18px;font-weight:600;color:{C_TEXT};">{item['close']:.3f}</span>
+            <span style="font-size:15px;font-weight:600;color:{accent};">{'+' if ch>=0 else ''}{ch:.2f}%</span>
+          </div>
+          <div style="margin-bottom:10px;">{badges}</div>
+          <div style="border-top:.5px solid {C_BORDER};padding-top:12px;font-size:12px;line-height:2.2;">
+            {pills}
+          </div>
         </div>"""
 
     html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:20px;background:{C_BG};font-family:'Microsoft YaHei','PingFang SC',Arial,sans-serif;">
-    <div style="max-width:620px;margin:0 auto;">
-        <div style="background:{C_CARD};border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-            <div style="color:{C_ACCENT};font-size:11px;letter-spacing:2px;margin-bottom:4px;font-weight:bold;">STOCK SIGNAL REPORT</div>
-            <h1 style="color:{C_TEXT};font-size:20px;margin:0 0 4px 0;font-weight:bold;">技术指标信号提醒</h1>
-            <p style="color:{C_TEXT2};font-size:12px;margin:0 0 2px 0;">检测时间: {now} | 信号数: {len(signals_list)}</p>
-            <p style="color:{C_TEXT3};font-size:11px;margin:0;">BOLL(20,2) · MA10 · MACD(19,39,9) · KDJ(18,3,3) · RSI(21,7)</p>
-        </div>
-        {cards_html}
-        <div style="text-align:center;color:{C_TEXT3};font-size:11px;padding:10px 0 20px;">本邮件由股票技术指标监控系统自动发送</div>
-    </div>
-</body>
-</html>"""
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:24px 16px 40px;background:{C_BG};font:15px/1.45 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;-webkit-font-smoothing:antialiased;">
+<div style="max-width:560px;margin:0 auto;">
+  <div style="margin-bottom:28px;padding:0 4px;">
+    <div style="font-size:12px;font-weight:600;color:{C_ACCENT};letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">Signal Report</div>
+    <h1 style="font-size:34px;font-weight:700;color:{C_TEXT};margin:0 0 8px;letter-spacing:-.01em;">技术指标信号</h1>
+    <p style="font-size:15px;color:{C_TEXT2};margin:0 0 4px;">检测: {now}<span style="margin:0 8px;color:{C_TEXT3}">|</span>信号 <b style="color:{C_ACCENT}">{len(signals_list)}</b> 只</p>
+    <p style="font-size:12px;color:{C_TEXT3};margin:0;">BOLL(20,2) · MA10 · MACD(19,39,9) · KDJ(18,3,3) · RSI(21,7)</p>
+  </div>
+  {cards_html}
+  <div style="text-align:center;font-size:12px;color:{C_TEXT3};padding:20px 0;">Stock Monitor · 每个交易日 11:00 / 14:30</div>
+</div>
+</body></html>"""
     return html
 
 

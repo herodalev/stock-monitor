@@ -1,0 +1,44 @@
+name: Stock Monitor
+
+on:
+  schedule:
+    # 11:00 北京时间 = 03:00 UTC，周一至周五
+    - cron: '0 3 * * 1-5'
+    # 14:30 北京时间 = 06:30 UTC，周一至周五
+    - cron: '30 6 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Decode config
+        run: echo "$CONFIG" | base64 -d > config.json
+        env:
+          CONFIG: ${{ secrets.CONFIG_JSON }}
+
+      - name: Run monitor
+        run: PYTHONIOENCODING=utf-8 python monitor.py
+
+      - name: Generate site
+        run: PYTHONIOENCODING=utf-8 python site_generator.py
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          keep_files: false
